@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monster GBA - Alpha</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Canvas para renderização do Mundo e Batalha -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Camada de Batalha (Invisível no início) -->
+        <div id="battle-ui" class="hidden">
+            <div class="stat-container player-stats">
+                <div class="name-tag">Raicat (Player)</div>
+                <div class="hp-bar-bg">
+                    <div id="player-hp" class="hp-bar-fill" style="width: 100%;"></div>
+                </div>
+                <div class="hp-text">100 / 100</div>
+            </div>
+
+            <div class="stat-container enemy-stats">
+                <div class="name-tag">Ignis (Enemy)</div>
+                <div class="hp-bar-bg">
+                    <div id="enemy-hp" class="hp-bar-fill" style="width: 100%;"></div>
+                </div>
+                <div class="hp-text">100 / 100</div>
+            </div>
+
+            <div id="action-menu" class="glass-panel">
+                <div class="message-box">
+                    <p id="battle-message">O que o Raicat deve fazer?</p>
+                </div>
+                <div class="abilities-grid">
+                    <button class="ability-btn" onclick="game.battle.attack(0)">Relâmpago</button>
+                    <button class="ability-btn" onclick="game.battle.attack(1)">Mordida</button>
+                    <button class="ability-btn" onclick="game.battle.attack(2)">Agilidade</button>
+                    <button class="ability-btn" onclick="game.battle.attack(3)">Investida</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay de Diálogo do Mundo -->
+        <div id="dialog-box" class="glass-panel hidden">
+            <p id="dialog-text">Bem-vindo à Vila Solar!</p>
+            <div class="next-hint">Pressione [E]</div>
+        </div>
+    </div>
+
+    <script src="world.js"></script>
+    <script src="battle.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

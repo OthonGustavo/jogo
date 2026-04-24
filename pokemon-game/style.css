@@ -1,0 +1,185 @@
+:root {
+    --gba-green: #4ade80;
+    --gba-blue: #3b82f6;
+    --gba-orange: #f59e0b;
+    --gba-red: #ef4444;
+    --dark-bg: #0f172a;
+    --glass: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--dark-bg);
+    color: white;
+    font-family: 'Outfit', sans-serif;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    background: #1e293b;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    border: 4px solid var(--glass-border);
+}
+
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Glass Panels */
+.glass-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+/* Battle UI */
+#battle-ui {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.stat-container {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    padding: 12px;
+    border-radius: 12px;
+    width: 250px;
+    pointer-events: auto;
+}
+
+.player-stats {
+    right: 30px;
+    bottom: 220px;
+}
+
+.enemy-stats {
+    left: 30px;
+    top: 30px;
+}
+
+.name-tag {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.hp-bar-bg {
+    height: 10px;
+    background: #334155;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.hp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gba-green), #86efac);
+    transition: width 0.5s ease-out;
+}
+
+.hp-text {
+    font-size: 12px;
+    text-align: right;
+    color: #94a3b8;
+}
+
+#action-menu {
+    pointer-events: auto;
+    flex-direction: row;
+}
+
+.message-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    font-size: 18px;
+    padding-right: 20px;
+}
+
+.abilities-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 350px;
+}
+
+.ability-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ability-btn:hover {
+    background: var(--gba-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.ability-btn:active {
+    transform: translateY(0);
+}
+
+/* Dialog Box */
+#dialog-box {
+    text-align: center;
+    z-index: 100;
+}
+
+#dialog-text {
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+.next-hint {
+    font-size: 10px;
+    color: var(--gba-blue);
+    text-transform: uppercase;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.3; }
+}
