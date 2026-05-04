@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { aiOrchestrator } from './ai-orchestrator';
+
+// Configuração do Worker do PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 // --- ÍCONES SVG ---
 const IconEmail = () => (
@@ -22,9 +28,9 @@ const IconLinkedin = () => (
 );
 
 // --- 1. IDENTIDADE VISUAL E CONTATOS (Header) ---
-const Header = () => (
+const Header = ({ setActivePage }) => (
   <header className="header">
-    <div className="logo">
+    <div className="logo" onClick={() => setActivePage('home')} style={{ cursor: 'pointer' }}>
       <img src="/images/logo.png" alt="Ademir Meira Advocacia" className="logo-img" />
     </div>
     <div className="contact-area">
@@ -56,7 +62,7 @@ const Navbar = ({ toggleTheme, theme, setActivePage, activePage }) => (
       <li><a href="#faq" onClick={() => setActivePage('faq')} className={activePage === 'faq' ? 'active' : ''}>FAQ</a></li>
       <li><a href="#blog" onClick={() => setActivePage('blog')} className={activePage === 'blog' ? 'active' : ''}>Blog</a></li>
       <li><a href="#contact" onClick={() => setActivePage('contact')} className={activePage === 'contact' ? 'active' : ''}>Contato</a></li>
-      <li><a href="#extractor" onClick={() => setActivePage('extractor')} className={activePage === 'extractor' ? 'active' : ''} style={{color: 'var(--accent-light)', fontWeight: 'bold'}}>✨ Extração PDF</a></li>
+      <li><a href="#extractor" onClick={() => setActivePage('extractor')} className={activePage === 'extractor' ? 'active' : ''}>Extração PDF</a></li>
     </ul>
     <button className="theme-toggle" onClick={toggleTheme}>
       {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
@@ -386,167 +392,12 @@ const AdminPanel = ({ onAddPost, onClose }) => {
 };
 
 // --- 8. EXTRAÇÃO DE PDF (Legal Tech) ---
-import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Configuração do Worker do PDF.js (essencial para rodar no navegador)
-// Configuração do Worker do PDF.js (usando unpkg para maior confiabilidade de versão)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 const PdfExtractor = () => {
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || 'AIzaSyAvzq_b_VM1nt3Phg_63_D0D1yVrNqFz_s');
-
-  const extractText = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map(item => item.str).join(" ") + "\n";
-    }
-    return fullText;
-  };
-
-  const processWithGemini = async (text) => {
-    if (!apiKey) return alert("Por favor, insira sua chave da API Gemini.");
-    localStorage.setItem('gemini_api_key', apiKey);
-    
-    setLoading(true);
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
-      const prompt = `Você é um assistente jurídico especialista em análise de documentos. 
-      Analise o texto extraído de um PDF e retorne EXCLUSIVAMENTE um objeto JSON (sem formatação markdown) com os seguintes campos:
-      - summary: um resumo executivo claro e profissional.
-      - agents: lista de pessoas físicas e jurídicas mencionadas.
-      - communication: e-mails e números de telefone encontrados.
-      - identifiers: CPFs, CNPJs, RGs e números de processos.
-      
-      Texto do PDF:
-      ${text.substring(0, 30000)} // Limite para não estourar contexto simples`;
-
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
-      
-      // Extração robusta de JSON (procura pelo primeiro '{' e último '}')
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("A IA não retornou um formato JSON válido.");
-      
-      const data = JSON.parse(jsonMatch[0]);
-      setResult(data);
-    } catch (error) {
-      console.error("Erro ao processar com Gemini:", error);
-      alert("Erro ao processar o documento. Verifique sua chave API e conexão.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFileUpload = async (e) => {
-    const uploadedFile = e.target.files[0];
-    if (uploadedFile && uploadedFile.type === "application/pdf") {
-      setFile(uploadedFile);
-      const text = await extractText(uploadedFile);
-      processWithGemini(text);
-    } else {
-      alert("Por favor, selecione um arquivo PDF válido.");
-    }
-  };
-
-  const downloadFiles = () => {
-    if (!result) return;
-
-    // 1. Resumo Executivo (TXT)
-    const summaryBlob = new Blob([result.summary], { type: 'text/plain' });
-    const summaryUrl = URL.createObjectURL(summaryBlob);
-    const a1 = document.createElement('a');
-    a1.href = summaryUrl;
-    a1.download = 'resumo_juridico.txt';
-    a1.click();
-
-    // 2. Dados Estruturados (CSV para Excel)
-    let csvContent = "Categoria,Dados\n";
-    csvContent += `Resumo,"${result.summary.replace(/"/g, '""')}"\n`;
-    csvContent += `Agentes,"${result.agents.join("; ")}"\n`;
-    csvContent += `Contatos,"${result.communication.join("; ")}"\n`;
-    csvContent += `Identificadores,"${result.identifiers.join("; ")}"\n`;
-
-    const csvBlob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const csvUrl = URL.createObjectURL(csvBlob);
-    const a2 = document.createElement('a');
-    a2.href = csvUrl;
-    a2.download = 'dados_extraidos.csv';
-    a2.click();
-  };
-
-  const speakSummary = () => {
-    if (!result?.summary) return;
-    const utterance = new SpeechSynthesisUtterance(result.summary);
-    utterance.lang = 'pt-BR';
-    window.speechSynthesis.speak(utterance);
-  };
-
   return (
-    <main className="main-content">
-      <div className="contact-header" style={{textAlign: 'center', marginBottom: '3rem'}}>
-        <h1>EXTRAÇÃO DE DADOS PDF</h1>
-        <p>Tecnologia e Inteligência Artificial para análise documental rápida.</p>
-      </div>
-
-      <div className="card" style={{maxWidth: '800px', margin: '0 auto', padding: '3rem'}}>
-        <div className="form-group">
-          <label>CHAVE API GEMINI (Opcional se já salva):</label>
-          <input 
-            type="password" 
-            placeholder="Insira sua API Key do Google AI Studio" 
-            value={apiKey} 
-            onChange={e => setApiKey(e.target.value)} 
-          />
-        </div>
-
-        <div className="upload-zone" style={{
-          border: '2px dashed var(--border-color)',
-          padding: '3rem',
-          textAlign: 'center',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          transition: 'all 0.3s'
-        }} onClick={() => document.getElementById('pdf-input').click()}>
-          <span style={{fontSize: '3rem'}}>📄</span>
-          <p style={{marginTop: '1rem'}}>{file ? file.name : "Clique aqui ou arraste seu PDF para analisar"}</p>
-          <input type="file" id="pdf-input" hidden accept=".pdf" onChange={handleFileUpload} />
-        </div>
-
-        {loading && (
-          <div style={{textAlign: 'center', marginTop: '2rem'}}>
-            <div className="spinner"></div>
-            <p>Processando com IA... Isso pode levar alguns segundos.</p>
-          </div>
-        )}
-
-        {result && (
-          <div className="results-area" style={{marginTop: '3rem', animation: 'fadeIn 0.5s ease'}}>
-            <h3 style={{marginBottom: '1rem'}}>Análise Concluída</h3>
-            <div className="card" style={{backgroundColor: 'var(--bg-primary)', padding: '2rem', marginBottom: '2rem'}}>
-              <p><strong>Resumo:</strong> {result.summary}</p>
-            </div>
-            
-            <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap'}}>
-              <button className="btn-send" onClick={downloadFiles}>
-                <span>📥 Baixar Arquivos (TXT & Excel)</span>
-              </button>
-              <button className="btn-send" onClick={speakSummary} style={{backgroundColor: '#1a4a5e', color: 'white'}}>
-                <span>🔊 Ouvir Resumo</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+    <main className="main-content" style={{ textAlign: 'center', padding: '10rem 2rem' }}>
+      <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>EM DESENVOLVIMENTO</h1>
+      <p style={{ fontSize: '1.2rem', opacity: 0.7 }}>Esta funcionalidade está sendo aprimorada e estará disponível em breve.</p>
     </main>
   );
 };
@@ -608,7 +459,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Header />
+      <Header setActivePage={setActivePage} />
       <Navbar 
         toggleTheme={toggleTheme} 
         theme={theme} 
