@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI PDF Insight - Extrator Inteligente</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <header>
+        <div class="logo">
+            <i class="fas fa-file-shield"></i>
+            <span>AI PDF <strong>Insight</strong></span>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#" class="active">Extrator</a></li>
+                <li><a href="#">Histórico</a></li>
+                <li><a href="#">Configurações</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero">
+            <h1>Transforme seus PDFs em <span>Conhecimento Puro</span></h1>
+            <p>Extração avançada de dados, lógica jurídica e resumos narrados por IA.</p>
+        </section>
+
+        <section id="upload-container">
+            <div class="upload-box" id="drop-zone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h3>Arraste seu PDF aqui</h3>
+                <p>ou clique para selecionar o arquivo</p>
+                <input type="file" id="pdf-input" accept="application/pdf" hidden>
+                <div id="file-info" class="hidden">
+                    <span id="file-name">arquivo.pdf</span>
+                    <button id="cancel-file"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <button id="extract-btn" class="btn-primary" disabled>
+                <span class="btn-text">Iniciar Extração</span>
+                <div class="loader hidden"></div>
+            </button>
+        </section>
+
+        <section id="results" class="hidden">
+            <div class="results-header">
+                <h2>Resultados da Análise</h2>
+                <div class="audio-controls">
+                    <div class="control-group">
+                        <label for="voice-select"><i class="fas fa-user-tie"></i> Voz:</label>
+                        <select id="voice-select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="speed-range"><i class="fas fa-tachometer-alt"></i> Velocidade: <span id="speed-val">1x</span></label>
+                        <input type="range" id="speed-range" min="0.5" max="2" step="0.1" value="1">
+                    </div>
+                    <button id="listen-all-btn" class="btn-audio">
+                        <i class="fas fa-play"></i> Ouvir Explicação
+                    </button>
+                    <div class="download-actions">
+                        <button id="download-pdf-btn" class="btn-secondary" title="Baixar Resultados em PDF">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="download-mp3-btn" class="btn-secondary" title="Baixar Áudio em MP3">
+                            <i class="fas fa-file-audio"></i> MP3
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="audio-player-container" class="player-container hidden">
+                    <div class="player-progress">
+                        <span id="current-time">00:00</span>
+                        <input type="range" id="audio-progress" value="0" min="0" max="100" step="0.1">
+                        <span id="total-time">00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-grid">
+                <!-- Card 1: Dados Relevantes -->
+                <div class="result-card" data-aos="fade-up">
+                    <div class="card-icon"><i class="fas fa-database"></i></div>
+                    <h3>Dados Relevantes</h3>
+                    <div id="data-content" class="card-body">
+                        <ul id="relevant-list"></ul>
+                    </div>
+                </div>
+
+                <!-- Card 2: Resumo -->
+                <div class="result-card">
+                    <div class="card-icon"><i class="fas fa-align-left"></i></div>
+                    <h3>Resumo Executivo</h3>
+                    <div id="summary-content" class="card-body"></div>
+                </div>
+
+                <!-- Card 3: Casos Semelhantes -->
+                <div class="result-card">
+                    <div class="card-icon"><i class="fas fa-search-nodes"></i></div>
+                    <h3>Casos Semelhantes</h3>
+                    <div id="cases-content" class="card-body"></div>
+                </div>
+
+                <!-- Card 4: Lógica -->
+                <div class="result-card">
+                    <div class="card-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Lógica Jurídica</h3>
+                    <div id="logic-content" class="card-body"></div>
+                </div>
+
+                <!-- Card 5: Ações -->
+                <div class="result-card">
+                    <div class="card-icon"><i class="fas fa-bolt"></i></div>
+                    <h3>Ações Recomendadas</h3>
+                    <div id="actions-content" class="card-body"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 AI PDF Insight - Sistema de Agentes MAS</p>
+    </footer>
+
+    <!-- Container real, renderizado pelo navegador, mas empurrado muito abaixo da tela (200vh) para não ser visto -->
+    <div style="position: fixed; top: 200vh; left: 0; width: 800px; z-index: -1;">
+        <!-- Template para Exportação de PDF -->
+        <div id="pdf-export-template" style="width: 800px; padding: 50px; font-family: Arial, sans-serif; color: #000; background: #fff; line-height: 1.5;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1a73e8; padding-bottom: 10px;">
+                <h1 style="color: #1a73e8; font-size: 24pt; margin: 0; text-transform: uppercase;">Relatório de Análise Técnica</h1>
+                <p id="pdf-date" style="color: #444; font-size: 10pt; margin-top: 5px;"></p>
+            </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 14pt; background: #f1f3f4; padding: 5px 10px; color: #1a73e8; border-left: 5px solid #1a73e8;">1. DADOS IDENTIFICADOS</h2>
+            <div id="pdf-relevant-list" style="padding: 10px 0; font-size: 11pt;"></div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 14pt; background: #f1f3f4; padding: 5px 10px; color: #1a73e8; border-left: 5px solid #1a73e8;">2. RESUMO DO DOCUMENTO</h2>
+            <p id="pdf-summary" style="font-size: 11pt; text-align: justify; padding: 0 10px;"></p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 14pt; background: #f1f3f4; padding: 5px 10px; color: #1a73e8; border-left: 5px solid #1a73e8;">3. JURISPRUDÊNCIA E CASOS ANÁLOGOS</h2>
+            <p id="pdf-cases" style="font-size: 11pt; text-align: justify; padding: 0 10px;"></p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 14pt; background: #f1f3f4; padding: 5px 10px; color: #1a73e8; border-left: 5px solid #1a73e8;">4. ANÁLISE LÓGICO-JURÍDICA</h2>
+            <p id="pdf-logic" style="font-size: 11pt; text-align: justify; padding: 0 10px;"></p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h2 style="font-size: 14pt; background: #f1f3f4; padding: 5px 10px; color: #1a73e8; border-left: 5px solid #1a73e8;">5. CONCLUSÕES E RECOMENDAÇÕES</h2>
+            <p id="pdf-actions" style="font-size: 11pt; text-align: justify; padding: 0 10px;"></p>
+        </div>
+
+        <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #ccc; font-size: 9pt; color: #777; text-align: center;">
+            Este documento é uma análise gerada por inteligência artificial e deve ser revisada por um profissional.<br>
+            © 2024 MAS - Sistema de Agentes Inteligentes
+        </div>
+    </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
