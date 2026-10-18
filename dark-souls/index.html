@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Almas Sombrias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="bars">
+    <div class="bar hp" id="hpBar"><div class="lag" id="hpLag"></div><div class="fill" id="hpFill"></div></div>
+    <div class="bar st" id="stBar"><div class="fill" id="stFill"></div></div>
+  </div>
+  <div id="estus"><div class="flask"></div><span id="estusCount">5</span></div>
+  <div id="souls"><span id="soulsCount">0</span></div>
+  <div id="prompt"></div>
+  <div id="bossbar" class="hidden">
+    <div class="name" id="bossName">Demônio do Asilo</div>
+    <div class="bar boss"><div class="lag" id="bossLag"></div><div class="fill" id="bossFill"></div></div>
+  </div>
+  <div id="reticle" class="hidden"></div>
+  <div id="area"></div>
+</div>
+
+<div id="banner"><span id="bannerText"></span></div>
+<div id="msgbox" class="hidden"><p id="msgText"></p><small>[E] fechar</small></div>
+
+<div id="title" class="overlay">
+  <h1>ALMAS SOMBRIAS</h1>
+  <p class="sub">uma homenagem a Dark Souls</p>
+  <button id="startBtn">Novo Jogo</button>
+  <div class="controls">
+    <div><b>WASD</b> mover · <b>Mouse</b> câmera (setas também)</div>
+    <div><b>Shift</b> correr · <b>Espaço</b> rolar (invencível durante a rolagem)</div>
+    <div><b>Clique esq.</b> ataque leve · <b>F</b> ataque forte · <b>Clique dir.</b> defender</div>
+    <div><b>Q</b> travar mira · <b>R</b> beber Estus · <b>E</b> interagir · <b>Esc</b> pausa</div>
+  </div>
+  <p class="lore">O fogo está se apagando. Você, um morto-vivo amaldiçoado, desperta numa cela do Asilo.<br>Acenda as fogueiras. Derrote o Demônio. Não se torne oco.</p>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <h2>Pausado</h2>
+  <p>Clique para continuar</p>
+</div>
+
+<div id="levelup" class="overlay hidden">
+  <h2>Fogueira</h2>
+  <p class="sub">Descansou. Vida e Estus restaurados — os inimigos voltaram.</p>
+  <div class="panel">
+    <div class="row head"><span>Nível <b id="lvl">1</b></span><span>Almas <b id="lvSouls">0</b></span></div>
+    <div class="row"><span>Custo do próximo nível</span><b id="lvCost">0</b></div>
+    <div class="row stat"><span>Vigor <small>(vida)</small></span><b id="sVig">10</b><button data-stat="vig">+</button></div>
+    <div class="row stat"><span>Fôlego <small>(estamina)</small></span><b id="sEnd">10</b><button data-stat="end">+</button></div>
+    <div class="row stat"><span>Força <small>(dano)</small></span><b id="sStr">10</b><button data-stat="str">+</button></div>
+  </div>
+  <button id="leaveBonfire">Levantar-se</button>
+</div>
+
+<div id="ending" class="overlay hidden">
+  <h1>FIM</h1>
+  <p class="sub">O Demônio do Asilo caiu. A chama tremula, mas ainda vive... por enquanto.</p>
+  <p id="endStats"></p>
+  <button id="ngPlus">Jornada Nova+ (inimigos mais fortes)</button>
+</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
