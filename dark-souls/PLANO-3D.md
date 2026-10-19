@@ -4,7 +4,8 @@
 Hoje todos os modelos do jogo são caixas e cilindros montados em código. O plano troca isso por:
 - **Personagens prontos e animados**, gratuitos (CC0), baixados direto do GitHub: esqueletos para os inimigos e aventureiros para o jogador.
 - **Cenário modular**: mais de 200 peças de masmorra (paredes, arcos, portas, tochas).
-- **Peças únicas geradas no Blender por script** na nuvem (fogueira, espada espiralada, lápides, névoa), e o **chefe gerado por IA na sua RTX 5060**.
+- **Peças únicas geradas no Blender por script** na nuvem (fogueira, espada espiralada, lápides, névoa).
+- **O chefe e as peças de destaque gerados por IA na sua RTX 5060** por um agente Claude Code rodando no próprio notebook (seção 3).
 - **Iluminação e pós-processamento** (brilho do fogo, sombras suaves, oclusão, correção de cor). É isso que mais aproxima o visual de um jogo profissional.
 
 O trabalho é dividido entre agentes Sonnet que rodam em paralelo, cada um responsável por arquivos próprios.
@@ -20,12 +21,19 @@ O trabalho é dividido entre agentes Sonnet que rodam em paralelo, cada um respo
 
 ## 3. Onde cada coisa roda
 
-| Nuvem (agentes Sonnet) | Seu notebook (RTX 5060) |
+| Nuvem (agentes Sonnet) | Seu notebook com RTX 5060 (agente Sonnet local) |
 |---|---|
-| Código do jogo, testes, screenshots | Gerar o chefe e peças especiais com IA a partir de imagem |
-| Blender sem GPU, por script (**testado: bpy 5.0.1 funciona**) | Blender com interface, para ajustes manuais opcionais |
-| Download dos pacotes KayKit (**testado: acessível**) | Mixamo (site da Adobe) para animações extras, se precisar |
-| Otimizar `.glb` (gltf-transform, pelo npm) | |
+| Código do jogo, testes, screenshots | Gerar por IA o chefe, a armadura do jogador e as peças de destaque (imagem → 3D) |
+| Blender sem GPU, por script (**testado: bpy 5.0.1 funciona**) | Blender com GPU: assar texturas rápido (Cycles OptiX) e conferir no Eevee |
+| Download dos pacotes KayKit (**testado: acessível**) | Testar o jogo de verdade, a 60 fps (a nuvem só consegue ~1 fps) |
+| Otimizar `.glb` (gltf-transform, pelo npm) | Enviar tudo ao GitHub com o seu login (não depende da permissão do Claude que hoje está bloqueada) |
+
+**Como ligar o agente no notebook** (a GPU só é vista por um agente que roda nele):
+1. Instale o Git e clone o repositório numa pasta (ex.: `C:\jogos\jogo`).
+2. Abra o **app Claude Desktop → Code** nessa pasta. Outra opção: rode `claude remote-control` num terminal dentro da pasta; a sessão aparece no app do Claude Code e você comanda pelo celular.
+3. Escolha o modelo **Sonnet** e cole o prompt "GPU-0" da seção 7.
+
+**Troca de arquivos entre nuvem e notebook:** pela branch `claude/dark-souls-recreate-b5ggyx`. O agente do notebook envia os `.glb` para `dark-souls/assets/inbox/`. Os agentes da nuvem fazem `git pull` e usam os arquivos. Enquanto o envio pela nuvem estiver bloqueado, o agente do notebook também é quem envia o trabalho da nuvem: você baixa os arquivos daqui ou pede para ele refazer a fase.
 
 **Limites da nuvem (testados):**
 - Não tem GPU.
@@ -48,9 +56,11 @@ O trabalho é dividido entre agentes Sonnet que rodam em paralelo, cada um respo
 | `three` (npm) + `postprocessing` | renderização e efeitos | nuvem/jogo | MIT | `npm i three postprocessing` (copiar o build para `vendor/`) |
 | `three-mesh-bvh` | colisão precisa com o cenário | jogo | MIT | `npm i three-mesh-bvh` |
 | KayKit Skeletons / Adventurers / Dungeon Remastered | inimigos, jogador, cenário (animados) | GitHub raw | **CC0** | `raw.githubusercontent.com/KayKit-Game-Assets/<pacote>/main/...` |
-| Blender 4.x/5.x desktop | ajustes manuais (opcional) | notebook | grátis | blender.org |
-| Pinokio | instala apps de IA com 1 clique no Windows | notebook | grátis | pinokio.co |
-| Hunyuan3D 2.1 ou TRELLIS 2 (via Pinokio/ComfyUI) | imagem → modelo 3D (chefe) | notebook | ver licença de cada um | pelo Pinokio |
+| Driver NVIDIA atualizado | RTX série 50 exige CUDA 12.8+ e PyTorch recente (build `cu128`) | notebook | grátis | GeForce Experience / nvidia.com |
+| Blender 4.x/5.x desktop | assar texturas com GPU (OptiX), rig e ajustes | notebook | grátis | blender.org |
+| Pinokio **ou** ComfyUI | instalam os geradores de IA no Windows | notebook | grátis | pinokio.co / comfy.org |
+| Hunyuan3D 2.1 e/ou TRELLIS 2 | imagem → modelo 3D | notebook | ver licença de cada um | pelo Pinokio ou nós do ComfyUI |
+| Gerador de imagem local (ex.: modelo Flux/SDXL no ComfyUI) | imagem conceito para alimentar o imagem→3D | notebook | ver licença | ComfyUI |
 | Meshy / Tripo (alternativa paga) | imagem → modelo já texturizado | site | créditos grátis limitados | site oficial |
 
 ⚠️ **Não confirmado**: se a geração por IA cabe nos 8 GB da RTX 5060. Guias da comunidade dizem que a **forma** do Hunyuan3D 2.1 roda com cerca de 6–8 GB, mas a **textura** pede mais. Para o TRELLIS 2 em "low VRAM", um site que vende créditos fala em 6–8 GB. Teste antes de contar com isso. Se não couber: gere só a forma e deixe o agente de Blender pintar a textura, ou use os créditos grátis do Meshy/Tripo.
@@ -98,10 +108,16 @@ Todos os agentes usam **Sonnet**. Cada um é "dono" de arquivos e não edita os 
 | 2 | **Chefe** | `src/entities/boss.js`, `assets/boss/` | modelo do chefe (da IA do notebook ou fallback no Blender) com rig e ataques | luta completa no teste |
 | 3 | **Integrador/QA** | merge + correções | tudo junto, README atualizado | teste verde + 6 screenshots revisados |
 
-Faixa paralela do **dono (notebook)**, durante as Fases 1–2:
-1. Instalar o Pinokio e, por ele, o Hunyuan3D 2.1 ou o TRELLIS 2.
-2. Gerar uma imagem do "Demônio do Asilo" (qualquer gerador de imagem) e passar pelo imagem→3D.
-3. Subir o `.glb` em `dark-souls/assets/inbox/` pelo site do GitHub, ou mandar aqui no chat.
+**Faixa GPU** (agente Sonnet no notebook). Roda em paralelo com as Fases 0–1 da nuvem, um agente por vez:
+
+| Etapa | Agente local | Dono de | Entrega | Critério de aceite |
+|---|---|---|---|---|
+| GPU-0 | **Instalação + teste de VRAM** | `tools/gpu/` | ambiente instalado e `tools/gpu/BENCH.md` com VRAM/tempo medidos de cada gerador | 1 modelo de teste gerado; a tabela diz o que cabe em 8 GB |
+| GPU-1 | **Chefe e heróis** | `assets/inbox/` | `.glb` do Demônio do Asilo, armadura do jogador, Cavaleiro Negro, fogueira de destaque | menos de 30k triângulos por modelo, textura ≤2048, preview `.png` |
+| GPU-2 | **Texturas e bakes** | `assets/inbox/textures/` | texturas PBR de pedra, metal e terra (geradas ou assadas no Blender com GPU) | conjuntos completos (cor, normal, rugosidade) em 1024–2048 |
+| QA local | **Teste a 60 fps** | só leitura | relatório de fps e de "sensação" dos controles depois da Fase 3 | fps médio ≥ 50 em qualidade alta, ou ajuste do preset `low` |
+
+Se o GPU-0 mostrar que não cabe em 8 GB: GPU-1 gera só a forma e o agente de Blender (nuvem ou local) faz a textura. Último recurso: os créditos grátis do Meshy/Tripo.
 
 ## 7. Prompts prontos (copiar e colar, um por agente)
 
@@ -129,6 +145,20 @@ Faixa paralela do **dono (notebook)**, durante as Fases 1–2:
 **Fase 3, Integrador/QA**
 > Leia `PLANO-3D.md`. Junte as branches/worktrees das fases 1–2, resolva conflitos respeitando a posse de arquivos, rode `tests/smoke.mjs` até passar, revise os 6 screenshots principais e corrija problemas visuais óbvios (modelos flutuando, escala, materiais pretos). Atualize o README. Gere o arquivo único para publicar. Commit.
 
+### Agentes do notebook (rodar no Claude Code local, modelo Sonnet)
+
+**GPU-0, Instalação + teste de VRAM**
+> Leia `dark-souls/PLANO-3D.md` (seções 3, 4 e 6). Você roda no notebook do dono (Windows, RTX 5060 Laptop). Confira a GPU com `nvidia-smi` e anote a VRAM real. Instale, explicando cada passo em português simples antes de pedir permissão: Python 3.11, PyTorch com CUDA 12.8 (`cu128`, necessário para a série 50), o ComfyUI ou o Pinokio, e os geradores Hunyuan3D 2.1 e TRELLIS 2 (modo de pouca VRAM). Gere 1 modelo de teste com cada gerador a partir de uma imagem simples e meça VRAM de pico, tempo e qualidade. Escreva `dark-souls/tools/gpu/BENCH.md` com os números e a recomendação (qual gerador usar e se a textura cabe na placa). Commit e push na branch `claude/dark-souls-recreate-b5ggyx`.
+
+**GPU-1, Chefe e heróis**
+> Leia `PLANO-3D.md` e `tools/gpu/BENCH.md`. Use o gerador recomendado. Para cada peça, crie primeiro uma imagem conceito (fundo neutro, vista 3/4, estilo dark fantasy sombrio, sem cenário): Demônio do Asilo (corpo enorme, chifres, barriga, clava de pedra), armadura do jogador (cavaleiro morto-vivo gasto), Cavaleiro Negro, fogueira com espada espiralada. Gere o 3D, abra no Blender, reduza para menos de 30k triângulos (Decimate), confira as normais, a escala (1 unidade = 1 m) e a orientação (frente para +Z), e exporte `.glb` com textura ≤2048. Renderize um preview `.png` de cada um. Salve tudo em `dark-souls/assets/inbox/` com um `README.md` que diga o gerador e a licença. Commit e push.
+
+**GPU-2, Texturas e bakes**
+> Leia `PLANO-3D.md`. Gere ou asse no Blender (Cycles com GPU/OptiX) conjuntos de textura PBR que encaixam: pedra antiga com musgo, metal enferrujado, terra e cinzas, madeira podre, todos em 1024 ou 2048 (cor, normal, rugosidade e AO). Eles precisam repetir sem emenda visível (seamless). Salve em `dark-souls/assets/inbox/textures/<nome>/` com previews. Commit e push.
+
+**QA local, Teste a 60 fps** (depois da Fase 3)
+> Leia `PLANO-3D.md`. Dê `git pull`, sirva `dark-souls/` com `python -m http.server` e abra no Chrome. Jogue o roteiro: acender a fogueira, matar 3 ocos, rolar, beber Estus, cair da ponte, recuperar as almas, lutar contra o chefe. Meça os fps (`renderer.info` e um contador na tela, só para o teste) em qualidade alta e baixa. Escreva `tests/QA-LOCAL.md` com fps, travadas, bugs e a sensação dos controles (atraso, câmera, peso dos golpes). Não altere código. Commit e push.
+
 ## 8. Como economizar
 - **Tudo em Sonnet.** Só chame Opus se um agente travar duas vezes no mesmo problema.
 - **Não use "fork"** para isso: fork sempre usa o modelo da conversa principal. Use agentes comuns ou um workflow com `model: 'sonnet'`.
@@ -142,6 +172,7 @@ Faixa paralela do **dono (notebook)**, durante as Fases 1–2:
 ## 9. Riscos
 - **GitHub:** o envio para o repositório está bloqueado (sem permissão). Corrija isso antes, senão o trabalho fica só neste ambiente temporário.
 - **Estilo dos modelos:** os modelos KayKit são estilizados. O clima sombrio depende do agente de render; para realismo maior, libere Poly Haven/ambientCG na rede.
-- **IA no notebook:** a geração com 8 GB de VRAM não está confirmada. O fallback do chefe pelo Blender existe para isso.
+- **IA no notebook:** a geração com 8 GB de VRAM não está confirmada. O GPU-0 mede isso antes de tudo, e o fallback do chefe pelo Blender existe para esse caso.
+- **Agente no notebook:** ele instala programas no seu computador. Leia o que ele pede antes de aprovar. Os geradores e seus modelos podem ocupar dezenas de GB de disco.
 - **Licenças:** KayKit é CC0. Confira a licença de cada gerador de IA antes de uso comercial (algumas têm restrições regionais).
 - **Peso do jogo:** com modelos reais o jogo fica mais pesado. O agente de render inclui a opção de qualidade baixa.
