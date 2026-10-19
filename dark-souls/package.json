@@ -1,0 +1,15 @@
+{
+  "name": "almas-sombrias",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Almas Sombrias - souls-like 3D no navegador",
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "build": "node tools/build-single.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright": "^1.50.0"
+  }
+}
