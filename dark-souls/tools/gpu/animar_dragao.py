@@ -77,7 +77,7 @@ for i, (_, _, a, b) in enumerate(OSSOS):
     ab = b - a
     t = np.clip(((v - a) @ ab) / (ab @ ab), 0, 1)
     dist[:, i] = np.linalg.norm(v - (a + t[:, None] * ab), axis=1)
-w = 1.0 / (dist + 0.02) ** 4
+w = 1.0 / (dist + 0.02) ** 8
 mantem = np.argsort(-w, axis=1)[:, :3]
 mask = np.zeros_like(w, dtype=bool)
 np.put_along_axis(mask, mantem, True, axis=1)
@@ -151,50 +151,48 @@ for f in senoide(n):
         gira(f"Wing1.{s}", EY, -k * 4 * math.sin(t), f)
         gira(f"UpperArm.{s}", EX, 2 * math.sin(t), f)
 
-# andar
+# andar: tronco rígido (só pernas, braços e cauda se mexem)
 n = 32
 nova("Andar", n)
 for f in senoide(n):
     t = (f - 1) / n * 2 * math.pi
     for s, ph in (("L", 0), ("R", math.pi)):
         k = 1 if s == "L" else -1
-        gira(f"Thigh.{s}", EX, 28 * math.sin(t + ph), f)
-        gira(f"Shin.{s}", EX, -18 - 18 * math.sin(t + ph + math.pi / 2), f)
-        gira(f"UpperArm.{s}", EX, -20 * math.sin(t + ph), f)
+        gira(f"Thigh.{s}", EX, 22 * math.sin(t + ph), f)
+        gira(f"Shin.{s}", EX, -14 - 14 * math.sin(t + ph + math.pi / 2), f)
+        gira(f"UpperArm.{s}", EX, -14 * math.sin(t + ph), f)
         gira(f"Wing1.{s}", EY, -k * (5 + 3 * math.sin(2 * t)), f)
-    gira("Hips", EZ, 6 * math.sin(t), f)
-    gira("Chest", EZ, -8 * math.sin(t), f)
-    gira("Head", EZ, 5 * math.sin(t), f)
-    gira("Tail1", EZ, 14 * math.sin(t + math.pi), f)
-    gira("Tail2", EZ, 18 * math.sin(t + math.pi - .5), f)
-    gira("Tail3", EZ, 22 * math.sin(t + math.pi - 1), f)
-    move("Hips", 0.05 * H * abs(math.sin(t)), f)
+    gira("Tail1", EZ, 12 * math.sin(t + math.pi), f)
+    gira("Tail2", EZ, 16 * math.sin(t + math.pi - .5), f)
+    gira("Tail3", EZ, 20 * math.sin(t + math.pi - 1), f)
+    move("Hips", 0.02 * H * abs(math.sin(t)), f)
 
-# ataque: recua, avança, morde e volta
-n = 40
+# ataque: soco com o braço direito, depois giro completo com chicotada de rabo
+n = 56
 nova("Ataque", n)
-pose = {  # frame: (peito, cabeça, braçoD, braçoE, asa, cauda)
-    1: (0, 0, 0, 0, 0, 0),
-    10: (-18, -15, -50, 10, 15, -15),
-    16: (22, 25, 55, -20, -10, 25),
-    22: (30, 30, 70, -25, -15, 30),
-    32: (10, 8, 20, -5, 0, 10),
-    40: (0, 0, 0, 0, 0, 0),
+# frame: (braço D, antebraço D, giro do corpo, rabo)
+quadros = {
+    1: (0, 0, 0, 0),
+    8: (-55, 40, 0, -10),      # prepara o soco
+    14: (85, -10, 0, -10),     # soco
+    20: (85, -10, 0, -20),
+    25: (10, 20, 0, -45),      # recolhe o braço e arma o rabo
+    31: (0, 0, 90, -30),
+    37: (0, 0, 180, 25),
+    43: (0, 0, 270, 70),       # rabo chicoteia para fora
+    49: (0, 0, 360, 40),
+    56: (0, 0, 360, 0),
 }
-for f, (pe, ca, bd, be, asa, ct) in pose.items():
-    gira("Spine", EX, pe * .5, f)
-    gira("Chest", EX, pe * .5, f)
-    gira("Neck", EX, ca * .5, f)
-    gira("Head", EX, ca * .5, f)
+for f, (bd, ad, giro, rabo) in quadros.items():
     gira("UpperArm.R", EX, -bd, f)
-    gira("Forearm.R", EX, -bd * .5, f)
-    gira("UpperArm.L", EX, -be, f)
-    gira("Wing1.L", EY, -asa, f)
-    gira("Wing1.R", EY, asa, f)
-    gira("Tail1", EX, -ct * .3, f)
-    gira("Tail2", EZ, ct * .6, f)
-    move("Hips", -0.03 * H if f in (10,) else (0.0 if f in (1, 40) else 0.02 * H), f,
-         dy=0.0 if f in (1, 40) else (0.08 * D if f in (16, 22) else 0.0))
+    gira("Forearm.R", EX, -ad, f)
+    gira("UpperArm.L", EX, 10 if giro else 0, f)
+    gira("Hips", EZ, giro, f)
+    gira("Tail1", EZ, rabo * .5, f)
+    gira("Tail2", EZ, rabo * .8, f)
+    gira("Tail3", EZ, rabo, f)
+    gira("Wing1.L", EY, -10 if giro else 0, f)
+    gira("Wing1.R", EY, 10 if giro else 0, f)
 
 # voar: bater asas
 n = 32
