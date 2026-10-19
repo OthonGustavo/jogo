@@ -2,7 +2,6 @@
 import math, random, sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import *
-import numpy as np
 
 random.seed(9)
 reset()
@@ -23,44 +22,34 @@ for o in objs:
         mod_bevel(o, 0.04, 2, 50)
 o = bake_group(objs, 'gate_stone', 1024)
 
-# plano de nevoa: textura RGBA gerada com numpy (esfumada nas bordas, com ondas)
-N = 256
-rng = np.random.default_rng(4)
-yy0, xx0 = np.mgrid[0:N, 0:N] / (N - 1)
-def waves(k, fmax):
-    out = np.zeros((N, N))
-    for _ in range(k):
-        fx, fy = rng.uniform(-fmax, fmax, 2)
-        out += np.sin(2 * np.pi * (fx * xx0 + fy * yy0) + rng.uniform(0, 6.28)) * rng.uniform(0.5, 1)
-    return out
-nz = waves(10, 3) + 0.5 * waves(14, 9) + 0.5 * np.sin(2 * np.pi * (3 * xx0 + 2 * np.sin(5 * yy0)))
-nz = (nz - nz.min()) / (nz.max() - nz.min())
-yy, xx = np.mgrid[0:N, 0:N] / (N - 1)
-edge = np.clip(np.minimum(np.minimum(xx, 1 - xx) * 6, np.minimum(yy, 1 - yy) * 3.5), 0, 1)
-alpha = (0.25 + 0.5 * nz) * edge
-rgb = np.stack([0.78 + 0.15 * nz, 0.85 + 0.1 * nz, 0.95 + 0 * nz], -1)
-px = np.dstack([rgb, alpha])[::-1].reshape(-1)       # origem da imagem embaixo
-img = bpy.data.images.new('fog_tex', N, N, alpha=True)
-img.pixels = px.astype('float32').tolist()
-img.pack()
+# plano de nevoa: t# plano de nevoa translucido
 fm = bpy.data.materials.new('fog'); fm.use_nodes = True
 fm.surface_render_method = 'BLENDED'
 fm.use_backface_culling = False
 nt = fm.node_tree; bs = nt.nodes['Principled BSDF']
-ti = nt.nodes.new('ShaderNodeTexImage'); ti.image = img
-nt.links.new(ti.outputs['Color'], bs.inputs['Base Color'])
-nt.links.new(ti.outputs['Alpha'], bs.inputs['Alpha'])
-nt.links.new(ti.outputs['Color'], bs.inputs['Emission Color'])
+vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'Col'
+nt.links.new(vc.outputs['Color'], bs.inputs['Base Color'])
+nt.links.new(vc.outputs['Alpha'], bs.inputs['Alpha'])
+nt.links.new(vc.outputs['Color'], bs.inputs['Emission Color'])
 bs.inputs['Emission Strength'].default_value = 0.6
 bs.inputs['Roughness'].default_value = 1.0
+# plano em grade 32x32; nevoa por vertex color (cor + alpha), esfumada nas bordas
+G = 32
 bm = bmesh.new()
-vs = [bm.verts.new(p) for p in ((-2, 0, 0.35), (2, 0, 0.35), (2, 0, 4.35), (-2, 0, 4.35))]
-f = bm.faces.new(vs[::1]); 
-uv = bm.loops.layers.uv.new('UVMap')
-for l, uvv in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
-    l[uv].uv = uvv
+grid = [[bm.verts.new((-2 + 4 * i / G, 0, 0.35 + 4 * j / G)) for i in range(G + 1)] for j in range(G + 1)]
+for j in range(G):
+    for i in range(G):
+        bm.faces.new((grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
 bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-if f.normal.y > 0:
-    bmesh.ops.reverse_faces(bm, faces=[f])  # frente para -Y (Blender)
+if bm.faces[0].normal.y > 0:
+    bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+ca = bm.loops.layers.float_color.new('Col')
+for f in bm.faces:
+    for l in f.loops:
+        u = (l.vert.co.x + 2) / 4; v = (l.vert.co.z - 0.35) / 4
+        n = 0.5 + 0.5 * (math.sin(9 * u + 4 * math.sin(5 * v)) * math.sin(7 * v + 3 * u) * 0.6 + math.sin(21 * u + 13 * v) * 0.25)
+        edge = min(1.0, min(u, 1 - u) * 6, min(v, 1 - v) * 3.5)
+        a = (0.2 + 0.55 * n) * edge
+        l[ca] = (0.78 + 0.15 * n, 0.85 + 0.1 * n, 0.95, a)
 plane = from_bm('fog_plane', bm, fm)
 finish('fog_gate', [o, plane])

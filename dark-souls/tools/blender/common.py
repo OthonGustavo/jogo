@@ -323,6 +323,7 @@ def ASH(name='ash'):
 def _new_img(name, res, color=True):
     img = bpy.data.images.new(name, res, res, alpha=False)
     img.colorspace_settings.name = 'sRGB' if color else 'Non-Color'
+    img.file_format = 'JPEG'
     return img
 
 
