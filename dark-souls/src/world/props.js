@@ -4,28 +4,41 @@ import { mat, glowSprite } from './materials.js';
 import { addWall } from './level.js';
 import { createFire } from '../fx/particles.js';
 import { TAU, rand } from '../utils.js';
+import { instance } from '../assets/loader.js';
+import './art.js';
 
 const bonfires = [];
 function addBonfire(x, z, name, lit = false) {
   const g = new THREE.Group(); g.position.set(x, 0, z);
-  const ash = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.25, 12), mat(0x2a2620)); ash.position.y = 0.12; g.add(ash);
+  const pr = new THREE.Group(); g.add(pr); // primitivas (fallback); art troca por bonfire.glb
+  const ash = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.25, 12), mat(0x2a2620)); ash.position.y = 0.12; pr.add(ash);
   for (let i = 0; i < 9; i++) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.9), mat(0xcfc4ac));
     b.position.set(Math.cos(i) * 0.4, 0.3, Math.sin(i) * 0.4); b.rotation.set(rand(-1.4, 1.4), rand(0, TAU), rand(-1.4, 1.4));
-    g.add(b);
+    pr.add(b);
   }
   const sword = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.5, 0.03), mat(0x5a4a3a, { metalness: 0.7, roughness: 0.4 }));
-  sword.position.y = 0.85; sword.rotation.z = 0.12; g.add(sword);
-  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 4, 10), mat(0x3a2a1a)); coil.position.y = 0.9; coil.rotation.x = Math.PI / 2; g.add(coil);
+  sword.position.y = 0.85; sword.rotation.z = 0.12; pr.add(sword);
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 4, 10), mat(0x3a2a1a)); coil.position.y = 0.9; coil.rotation.x = Math.PI / 2; pr.add(coil);
   const fire = createFire(x, 0.55, z, 1.25); // chama em partículas (fx/particles.js); .visible liga/desliga
   const light = new THREE.PointLight(0xff8a30, 0, 20, 1.6); light.position.y = 1.4; g.add(light);
   const embers = []; // brasas agora fazem parte do sistema de partículas
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
-  const bf = { pos: new THREE.Vector3(x, 0, z), name, lit, group: g, fire, light, embers };
+  const bf = { pos: new THREE.Vector3(x, 0, z), name, lit, group: g, prim: pr, fire, light, embers };
+  artBonfire(bf);
   setBonfireLit(bf, lit);
   bonfires.push(bf);
   return bf;
+}
+// troca as primitivas pelo modelo do Blender (espada espiralada incluída); sem o asset, mantém as primitivas
+function artBonfire(bf) {
+  if (bf.art) return;
+  const a = instance('gen_bonfire');
+  if (!a) return;
+  a.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  a.scene.scale.setScalar(1.15); a.scene.rotation.y = bf.pos.x * 0.37; // giro por fogueira, só para variar
+  bf.group.remove(bf.prim); bf.group.add(a.scene); bf.art = a.scene;
 }
 function setBonfireLit(bf, lit) {
   bf.lit = lit; bf.fire.visible = lit; bf.embers.forEach(e => e.s.visible = lit);
@@ -67,4 +80,4 @@ addMessage(2, -55, 'Fogueira adiante. Descanse, mas saiba: os mortos se levantam
 addMessage(0, -2, 'Abismo adiante. Cuidado com os pés.');
 addMessage(2, 68, 'Névoa adiante... prepare-se. Use Q para travar a mira no inimigo.');
 addMessage(-4, 46, 'Tente defender (botão direito) — mas a estamina acaba.');
-export { bonfires, addBonfire, setBonfireLit, items, addItem, messages, addMessage, fogMat, fogGate, fogWall };
+export { artBonfire, bonfires, addBonfire, setBonfireLit, items, addItem, messages, addMessage, fogMat, fogGate, fogWall };

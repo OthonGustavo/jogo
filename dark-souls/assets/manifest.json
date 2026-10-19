@@ -38,5 +38,11 @@
   "dungeon_banner_red": "assets/dungeon/banner_red.glb",
   "dungeon_rubble_large": "assets/dungeon/rubble_large.glb",
   "dungeon_shelf_large": "assets/dungeon/shelf_large.glb",
-  "dungeon_keg": "assets/dungeon/keg.glb"
+  "dungeon_keg": "assets/dungeon/keg.glb",
+  "gen_bonfire": "assets/generated/bonfire.glb",
+  "gen_broken_pillar": "assets/generated/broken_pillar.glb",
+  "gen_gravestone": "assets/generated/gravestone.glb",
+  "gen_gothic_arch": "assets/generated/gothic_arch.glb",
+  "gen_fog_gate": "assets/generated/fog_gate.glb",
+  "gen_ruined_statue": "assets/generated/ruined_statue.glb"
 }

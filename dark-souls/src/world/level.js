@@ -2,11 +2,17 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { scene } from '../core/renderer.js';
 import { mat, floorTex, wallTex, glowSprite } from './materials.js';
 import { createFire } from '../fx/particles.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TAU, clamp, rand } from '../utils.js';
 
 const grounds = [];   // retângulos onde se pode pisar
 const walls = [];     // AABBs de colisão
 const world = new THREE.Group(); scene.add(world);
+// Visual de primitivas agrupado por categoria: art.js troca cada grupo pelas peças glTF (se carregarem); senão ficam estas.
+const prim = {};
+for (const k of ['floor', 'wall', 'pillar', 'grave', 'torch', 'statue']) { prim[k] = new THREE.Group(); world.add(prim[k]); }
+// dados do layout (a arte usa os mesmos números das colisões)
+const data = { walls: [], pillars: [], graves: [], torches: [], statue: null };
 
 function addGround(x1, z1, x2, z2) {
   grounds.push({ x1, z1, x2, z2 });
@@ -15,17 +21,18 @@ function addGround(x1, z1, x2, z2) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, 14, d), [mat(0x2a2622), mat(0x2a2622), mat(0xffffff, { map: t }), mat(0x111111), mat(0x2a2622), mat(0x2a2622)]);
   m.position.set((x1 + x2) / 2, -7, (z1 + z2) / 2);
   m.receiveShadow = true;
-  world.add(m);
+  prim.floor.add(m);
 }
 function addWall(x1, z1, x2, z2, h = 7, visible = true) {
   const w = { x1, z1, x2, z2, active: true };
   walls.push(w);
   if (visible) {
+    data.walls.push({ x1, z1, x2, z2, h });
     const t = wallTex.clone(); t.needsUpdate = true; t.repeat.set(Math.max(x2 - x1, z2 - z1) / 4, h / 4);
     const m = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, h, z2 - z1), mat(0xffffff, { map: t }));
     m.position.set((x1 + x2) / 2, h / 2, (z1 + z2) / 2);
     m.castShadow = m.receiveShadow = true;
-    world.add(m); w.mesh = m;
+    prim.wall.add(m); w.mesh = m;
   }
   return w;
 }
@@ -33,15 +40,17 @@ function addPillar(x, z, h = 6, r = 0.7, broken = false) {
   const hh = broken ? h * rand(0.3, 0.7) : h;
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r, hh, 10), mat(0x6a655c, { map: wallTex }));
   m.position.set(x, hh / 2, z); m.castShadow = m.receiveShadow = true;
-  world.add(m);
+  prim.pillar.add(m);
   const cap = new THREE.Mesh(new THREE.BoxGeometry(r * 2.4, 0.4, r * 2.4), mat(0x5a554c));
-  cap.position.set(x, 0.2, z); world.add(cap);
+  cap.position.set(x, 0.2, z); prim.pillar.add(cap);
+  data.pillars.push({ x, z, h, r, broken });
   walls.push({ x1: x - r, z1: z - r, x2: x + r, z2: z + r, active: true });
 }
 function addGrave(x, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.1, 0.2), mat(0x55524c));
   m.position.set(x, 0.5, z); m.rotation.set(rand(-0.15, 0.15), rand(-0.4, 0.4), rand(-0.15, 0.15));
-  m.castShadow = true; world.add(m);
+  m.castShadow = true; prim.grave.add(m);
+  data.graves.push({ x, z });
 }
 function addTree(x, z) {
   const g = new THREE.Group();
@@ -53,17 +62,28 @@ function addTree(x, z) {
     b.position.y = rand(3, 4.8); b.rotation.set(rand(-1.2, 1.2), rand(0, TAU), rand(-1.2, 1.2));
     g.add(b);
   }
-  g.traverse(o => o.castShadow = true);
-  g.position.set(x, 0, z); world.add(g);
+  g.position.set(x, 0, z); g.updateMatrixWorld(true);
+  const parts = [];
+  g.traverse(o => { if (o.isMesh) { const ge = o.geometry.clone().applyMatrix4(o.matrixWorld); ge.deleteAttribute('uv'); parts.push(ge); } });
+  const tree = new THREE.Mesh(mergeGeometries(parts), bark); // uma malha só por árvore
+  tree.castShadow = true; world.add(tree);
 }
 function addTorch(x, z, y = 3.2) {
   const holder = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6), mat(0x222222));
-  holder.position.set(x, y, z); world.add(holder);
+  holder.position.set(x, y, z); prim.torch.add(holder);
+  data.torches.push({ x, z, y });
   const fire = createFire(x, y + 0.35, z, 0.55);
   const l = new THREE.PointLight(0xff8a30, 18, 14, 1.8); l.position.set(x, y + 0.5, z); world.add(l);
   flickers.push({ light: l, fire, base: 18 });
 }
 const flickers = [];
+
+// funde meshes soltas (já posicionadas) numa só, com um material: poucos draw calls
+function fuse(meshes, material, cast = false) {
+  const parts = meshes.map(m => { m.updateMatrixWorld(true); const g = m.geometry.clone().applyMatrix4(m.matrix); g.deleteAttribute('uv'); return g; });
+  const out = new THREE.Mesh(mergeGeometries(parts), material);
+  out.castShadow = cast; out.receiveShadow = true; world.add(out);
+}
 
 function buildWorld() {
   // Asilo / pátio
@@ -80,13 +100,15 @@ function buildWorld() {
 
   // ponte sobre o abismo (sem paredes: dá para cair)
   addGround(-3.2, 0, 3.2, 40);
+  const postMeshes = [];
   for (let z = 2; z < 40; z += 4) {
     for (const x of [-3, 3]) {
       if (Math.random() < 0.35) continue;
       const p = new THREE.Mesh(new THREE.BoxGeometry(0.35, rand(0.4, 1.1), 0.35), mat(0x5a554c));
-      p.position.set(x, 0.4, z); p.castShadow = true; world.add(p);
+      p.position.set(x, 0.4, z); postMeshes.push(p);
     }
   }
+  fuse(postMeshes, mat(0x5a554c), true);
 
   // praça
   addGround(-18, 40, 18, 72);
@@ -97,8 +119,9 @@ function buildWorld() {
   addTree(-15, 58); addTree(14, 47);
   addTorch(-17.6, 52); addTorch(17.6, 66);
   // estátua quebrada
-  const st = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat(0x4a4640)); st.position.set(0, 0.5, 56); world.add(st);
-  const fig = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 2.5, 8), mat(0x7a756a)); fig.position.set(0, 2.2, 56); fig.rotation.z = 0.2; fig.castShadow = true; world.add(fig);
+  const st = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat(0x4a4640)); st.position.set(0, 0.5, 56); prim.statue.add(st);
+  const fig = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 2.5, 8), mat(0x7a756a)); fig.position.set(0, 2.2, 56); fig.rotation.z = 0.2; fig.castShadow = true; prim.statue.add(fig);
+  data.statue = { x: 0, z: 56 };
   walls.push({ x1: -1, z1: 55, x2: 1, z2: 57, active: true });
 
   // arena do chefe
@@ -109,10 +132,12 @@ function buildWorld() {
     const a = (i / 10) * TAU;
     addPillar(Math.cos(a) * 21, 102 + Math.sin(a) * 24, 11, 1, i % 3 === 0);
   }
+  const boneMeshes = [];
   for (let i = 0; i < 40; i++) {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, rand(0.3, 0.8)), mat(0xbdb3a0));
-    b.position.set(rand(-24, 24), 0.05, rand(76, 130)); b.rotation.set(Math.PI / 2, 0, rand(0, TAU)); world.add(b);
+    b.position.set(rand(-24, 24), 0.05, rand(76, 130)); b.rotation.set(Math.PI / 2, 0, rand(0, TAU)); boneMeshes.push(b);
   }
+  fuse(boneMeshes, mat(0xbdb3a0));
   addTorch(-25.6, 90); addTorch(25.6, 90); addTorch(-25.6, 118); addTorch(25.6, 118);
 
   // abismo
@@ -139,4 +164,4 @@ function resolveWalls(p, r) {
   }
 }
 const insideWall = p => walls.some(w => w.active && p.x > w.x1 && p.x < w.x2 && p.z > w.z1 && p.z < w.z2);
-export { grounds, walls, world, addGround, addWall, addPillar, addGrave, addTree, addTorch, flickers, buildWorld, onGround, resolveWalls, insideWall };
+export { prim, data, grounds, walls, world, addGround, addWall, addPillar, addGrave, addTree, addTorch, flickers, buildWorld, onGround, resolveWalls, insideWall };
