@@ -7,8 +7,9 @@ import { keys, bufferAction } from './core/input.js';
 import { updateCamera } from './core/camera.js';
 import { flickers } from './world/level.js';
 import { bonfires, items, setBonfireLit, fogMat, fogGate, fogWall } from './world/props.js';
-import { player, updatePlayer } from './entities/player.js';
-import { enemies, boss, updateEnemy, updateArrows } from './entities/enemy.js';
+import { loadManifest, loadAll } from './assets/loader.js';
+import { player, updatePlayer, upgradePlayerModel } from './entities/player.js';
+import { enemies, boss, upgradeEnemyModels, updateEnemy, updateArrows } from './entities/enemy.js';
 import { updateSparks } from './fx/particles.js';
 import { renderFrame } from './fx/post.js';
 import { removeFire } from './fx/particles.js';
@@ -72,6 +73,17 @@ function frame(now) {
   updateCamera(dt);
   renderFrame();
 }
+// carrega os modelos antes de liberar o jogo; se algo falhar, ficam os humanoides de primitivas
+const startBtn = $('startBtn'), startLabel = startBtn.textContent;
+startBtn.disabled = true; startBtn.textContent = 'Carregando…';
+(async () => {
+  try {
+    const manifest = await loadManifest();
+    await loadAll(manifest, ['player', 'enemy_hollow', 'enemy_archer', 'enemy_knight']);
+    upgradePlayerModel(); upgradeEnemyModels();
+  } catch (e) { console.warn('modelos glTF indisponíveis, usando primitivas:', e.message); }
+  startBtn.disabled = false; startBtn.textContent = startLabel;
+})();
 setGameState('title');
 camera.position.set(0, 3, -75);
 requestAnimationFrame(frame);

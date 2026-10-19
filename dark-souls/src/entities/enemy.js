@@ -7,6 +7,8 @@ import { mat } from '../world/materials.js';
 import { resolveWalls, onGround, insideWall } from '../world/level.js';
 import { burst } from '../fx/particles.js';
 import { buildHumanoid, setFlash } from './humanoid.js';
+import { buildCharacter } from './character.js';
+import { CLIPS } from '../anim/animator.js';
 import { player } from './player.js';
 import { hurtPlayer } from '../combat.js';
 
@@ -29,7 +31,21 @@ const TYPES = {
       { name: 'jump', wind: 0.9, active: 0.2, recover: 1.5, range: 99, arc: 9, dmg: 80, jump: true, aoe: 5.5, slam: true },
     ] },
 };
+const RIG = {
+  hollow: { key: 'enemy_hollow', height: 1.7 },
+  archer: { key: 'enemy_archer', height: 1.7, map: { ...CLIPS, attack_light: '1H_Melee_Attack_Stab' } },
+  knight: { key: 'enemy_knight', height: 1.7, scale: 1.15, tint: new THREE.Color(0.32, 0.32, 0.38) },
+};
 const enemies = [];
+// Troca os humanoides de primitivas pelos esqueletos glTF (o chefe fica como está). Chamado por main.js.
+function upgradeEnemyModels() {
+  for (const e of enemies) {
+    const r = RIG[e.type]; if (!r) continue;
+    const m = buildCharacter(r.key, r);
+    if (!m) continue;
+    scene.remove(e.model.root); e.model = m; resetEnemy(e);
+  }
+}
 function addEnemy(type, x, z, yaw = Math.PI) {
   const cfg = TYPES[type];
   const e = { type, cfg, spawn: new THREE.Vector3(x, 0, z), spawnYaw: yaw, pos: new THREE.Vector3(), yaw, model: buildHumanoid(cfg.model), alive: true, flash: 0 };
@@ -43,6 +59,7 @@ function resetEnemy(e) {
   e.pos.copy(e.spawn); e.yaw = e.spawnYaw; e.state = 'idle'; e.t = 0; e.atk = null; e.cool = rand(0.5, 1.5);
   e.alive = true; e.aggro = false; e.deadT = 0; e.walkPhase = 0; e.phase2 = false; e.jumpFrom = null;
   e.model.root.visible = true; e.model.pivot.rotation.set(0, 0, 0); e.model.pivot.position.y = 0.9;
+  if (e.model.rigged) { e.model.animKey = null; e.model.root.position.y = 0; e.model.anim.play('idle', { restart: true, fade: 0 }); }
   if (e.cfg.boss) e.active = false;
 }
 
@@ -58,6 +75,7 @@ function updateEnemy(e, dt) {
   e.flash = Math.max(0, e.flash - dt * 5); setFlash(m, e.flash * 0.6);
   if (!e.alive) {
     e.deadT += dt;
+    if (m.rigged) { if (m.animKey !== 'dead') { m.animKey = 'dead'; m.anim.play('death', { loop: false, restart: true, fade: 0.1 }); } m.anim.update(dt); }
     const k = clamp(e.deadT / 1.0, 0, 1);
     m.pivot.rotation.x = -Math.PI / 2 * k; m.pivot.position.y = 0.9 - 0.75 * k;
     if (e.deadT > 2.5) {
@@ -192,6 +210,7 @@ function animateEnemy(e, dt, moveAmt) {
   m.root.position.x = e.pos.x; m.root.position.z = e.pos.z;
   if (!(e.state === 'windup' && e.atk?.jump)) m.root.position.y = 0;
   m.root.rotation.y = e.yaw;
+  if (m.rigged) return animateRigged(e, m, dt, moveAmt);
   e.walkPhase += dt * 7 * moveAmt;
   const sw = Math.sin(e.walkPhase) * 0.6 * Math.min(1, moveAmt);
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw;
@@ -216,6 +235,19 @@ function animateEnemy(e, dt, moveAmt) {
   if (e.cfg.boss && !e.active) { torsoX = 0.2; }
   m.armR.rotation.x = armR; m.armL.rotation.x = armL;
   m.torso.rotation.x = torsoX; m.torso.rotation.y = torsoY;
+}
+// Esqueletos glTF: clip por estado; o clip de ataque se estende por windup+active+recover.
+function animateRigged(e, m, dt, moveAmt) {
+  const a = m.anim, at = e.atk;
+  let key;
+  if (e.state === 'windup' || e.state === 'active' || e.state === 'recover') key = at; else key = e.state === 'stagger' ? 'stagger' : moveAmt > 0 ? 'walk' : 'idle';
+  if (key !== m.animKey) {
+    m.animKey = key;
+    if (key === 'stagger') a.play('hit', { loop: false, restart: true, fade: 0.05, timeScale: a.fit('hit', 0.6) });
+    else if (key === 'walk' || key === 'idle') a.play(key, { fade: 0.2 });
+    else { const n = at.heavy ? 'attack_heavy' : 'attack_light'; a.play(n, { loop: false, restart: true, fade: 0.1, timeScale: a.fit(n, at.wind + at.active + at.recover) }); }
+  }
+  a.update(dt);
 }
 const arrowGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4).rotateX(Math.PI / 2);
 const arrowMat = mat(0x8a7050);
@@ -243,4 +275,4 @@ function updateArrows(dt) {
     if (dead) { scene.remove(a.m); arrows.splice(i, 1); }
   }
 }
-export { TYPES, enemies, addEnemy, resetEnemy, boss, startAttack, updateEnemy, animateEnemy, arrows, shootArrow, updateArrows };
+export { TYPES, enemies, addEnemy, upgradeEnemyModels, resetEnemy, boss, startAttack, updateEnemy, animateEnemy, arrows, shootArrow, updateArrows };

@@ -6,6 +6,8 @@ import { keys } from '../core/input.js';
 import { resolveWalls, onGround } from '../world/level.js';
 import { burst } from '../fx/particles.js';
 import { buildHumanoid } from './humanoid.js';
+import { buildCharacter } from './character.js';
+import { scene } from '../core/renderer.js';
 import { enemies, boss } from './enemy.js';
 import { hurtEnemy, killPlayer } from '../combat.js';
 import { showArea } from '../ui/hud.js';
@@ -25,6 +27,14 @@ const levelCost = () => Math.round(150 * Math.pow(1.12, level() - 1));
 const baseDmg = () => 14 + player.stats.str * 2.4;
 player.hp = player.hpLag = maxHp(); player.st = maxSt();
 player.model = buildHumanoid({ armor: 0x6e675c, cloth: 0x4a3a2a, shield: true, weapon: 'sword' });
+// Troca o humanoide de primitivas pelo cavaleiro glTF (se o asset carregou). Chamado por main.js.
+function upgradePlayerModel() {
+  const m = buildCharacter('player', { height: 1.8 });
+  if (!m) return false;
+  scene.remove(player.model.root);
+  player.model = m;
+  return true;
+}
 function setPlayerState(s, data) { player.state = s; player.t = 0; player.data = { ...data, knock: player.data?.knock }; }
 const PLAYER_ATTACKS = {
   light: { dur: 0.62, hitStart: 0.2, hitEnd: 0.34, cost: 18, mult: 1, range: 2.4, arc: 1.1, lunge: 2.5, combo: 0.42 },
@@ -157,10 +167,28 @@ function updatePlayer(dt) {
   animatePlayer(dt);
 }
 
+// Escolhe o clip pelo estado; a duração dos clips é ajustada às janelas de dano atuais (só apresentação).
+function animateRigged(p, m, dt) {
+  const a = m.anim, key = p.state === 'attack' || p.state === 'stagger' ? p.data : p.state;
+  if (m.animKey !== key || (p.state === 'idle' && m.animName !== idleClip(p))) {
+    m.animKey = key;
+    if (p.state === 'attack') { m.animName = 'attack_' + (p.data.kind === 'heavy' ? 'heavy' : 'light'); a.play(m.animName, { loop: false, restart: true, fade: 0.08, timeScale: a.fit(m.animName, p.data.atk.dur) }); }
+    else if (p.state === 'roll') { m.animName = 'roll'; a.play('roll', { loop: false, restart: true, fade: 0.08, timeScale: a.fit('roll', p.data.back ? 0.4 : 0.62) }); }
+    else if (p.state === 'stagger') { m.animName = 'hit'; a.play('hit', { loop: false, restart: true, fade: 0.05, timeScale: a.fit('hit', Math.max(0.3, p.data.dur)) }); }
+    else if (p.state === 'dead') { m.animName = 'death'; a.play('death', { loop: false, restart: true, fade: 0.1 }); }
+    else if (p.state === 'drink') { m.animName = 'drink'; a.play('drink', { fade: 0.2 }); }
+    else if (p.state === 'falling' || p.state === 'fog') { m.animName = 'walk'; a.play('walk', { fade: 0.2 }); }
+    else { m.animName = idleClip(p); a.play(m.animName, { fade: 0.2 }); }
+  }
+  a.update(dt);
+}
+const idleClip = p => p.blocking ? 'block' : p.moving > 1.2 ? 'run' : p.moving > 0 ? 'walk' : 'idle';
+
 function animatePlayer(dt) {
   const p = player, m = p.model;
   m.root.position.copy(p.pos);
   m.root.rotation.y = p.yaw;
+  if (m.rigged) return animateRigged(p, m, dt);
   p.walkPhase += dt * 9 * (p.moving || 0);
   const sw = Math.sin(p.walkPhase) * 0.7 * Math.min(1, p.moving);
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw;
@@ -194,4 +222,4 @@ function animatePlayer(dt) {
   m.torso.rotation.x = torsoX; m.torso.rotation.y = torsoY; m.head.rotation.x = headX;
   m.pivot.rotation.x = pivotX; m.pivot.position.y = pivotY;
 }
-export { player, maxHp, maxSt, level, levelCost, baseDmg, setPlayerState, PLAYER_ATTACKS, updatePlayer, animatePlayer };
+export { player, maxHp, maxSt, level, levelCost, baseDmg, setPlayerState, upgradePlayerModel, PLAYER_ATTACKS, updatePlayer, animatePlayer };
