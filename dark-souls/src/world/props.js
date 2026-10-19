@@ -2,6 +2,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 import { scene } from '../core/renderer.js';
 import { mat, glowSprite } from './materials.js';
 import { addWall } from './level.js';
+import { createFire } from '../fx/particles.js';
 import { TAU, rand } from '../utils.js';
 
 const bonfires = [];
@@ -16,10 +17,9 @@ function addBonfire(x, z, name, lit = false) {
   const sword = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.5, 0.03), mat(0x5a4a3a, { metalness: 0.7, roughness: 0.4 }));
   sword.position.y = 0.85; sword.rotation.z = 0.12; g.add(sword);
   const coil = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 4, 10), mat(0x3a2a1a)); coil.position.y = 0.9; coil.rotation.x = Math.PI / 2; g.add(coil);
-  const fire = glowSprite(0xff7a20, 2.4); fire.position.y = 0.8; g.add(fire);
+  const fire = createFire(x, 0.55, z, 1.25); // chama em partículas (fx/particles.js); .visible liga/desliga
   const light = new THREE.PointLight(0xff8a30, 0, 20, 1.6); light.position.y = 1.4; g.add(light);
-  const embers = [];
-  for (let i = 0; i < 16; i++) { const e = glowSprite(0xffa040, 0.12); g.add(e); embers.push({ s: e, t: Math.random() }); }
+  const embers = []; // brasas agora fazem parte do sistema de partículas
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   scene.add(g);
   const bf = { pos: new THREE.Vector3(x, 0, z), name, lit, group: g, fire, light, embers };

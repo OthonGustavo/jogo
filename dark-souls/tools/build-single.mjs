@@ -16,6 +16,8 @@ const result = await build({
   target: 'es2022',
   write: false,
   legalComments: 'none',
+  // uma única instância de three: o import 'three' das libs vendorizadas aponta para o mesmo arquivo do jogo
+  alias: { three: join(ROOT, 'vendor', 'three.module.min.js'), postprocessing: join(ROOT, 'vendor', 'postprocessing.js'), n8ao: join(ROOT, 'vendor', 'n8ao.js') },
 });
 // "</script" dentro do bundle fecharia a tag inline; escapa por segurança
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');

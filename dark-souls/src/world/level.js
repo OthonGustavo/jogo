@@ -1,6 +1,7 @@
 import * as THREE from '../../vendor/three.module.min.js';
 import { scene } from '../core/renderer.js';
 import { mat, floorTex, wallTex, glowSprite } from './materials.js';
+import { createFire } from '../fx/particles.js';
 import { TAU, clamp, rand } from '../utils.js';
 
 const grounds = [];   // retângulos onde se pode pisar
@@ -58,9 +59,9 @@ function addTree(x, z) {
 function addTorch(x, z, y = 3.2) {
   const holder = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6), mat(0x222222));
   holder.position.set(x, y, z); world.add(holder);
-  const fire = glowSprite(0xff8a30, 1.2); fire.position.set(x, y + 0.45, z); world.add(fire);
+  const fire = createFire(x, y + 0.35, z, 0.55);
   const l = new THREE.PointLight(0xff8a30, 18, 14, 1.8); l.position.set(x, y + 0.5, z); world.add(l);
-  flickers.push({ light: l, sprite: fire, base: 18 });
+  flickers.push({ light: l, fire, base: 18 });
 }
 const flickers = [];
 
